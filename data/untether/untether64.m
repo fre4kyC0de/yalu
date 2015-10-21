@@ -621,42 +621,42 @@ out = IOConnectTrap5(conn_, 0, ((uint64_t)where) - 32, 0x1337133742424242, 0x133
         int f = open("/yalu", O_RDWR|O_CREAT|O_TRUNC);
         int r = fcopyfile(o, f, 0, COPYFILE_ALL);
         NSLog(@"%d %d %d", o, f, r);
-    }
-    if (stat("/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar", &sb) == 0) {
-        chmod("/var/mobile/Media/PhotoData/KimJongCracks/tar", 0777);
+        if (stat("/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar", &sb) == 0) {
+            chmod("/var/mobile/Media/PhotoData/KimJongCracks/tar", 0777);
 
-        NSLog(@"Installing loader.");
-        chdir("/");
+            NSLog(@"Installing loader.");
+            chdir("/");
         
-        NSLog(@"Beginning extraction.");
-        int f = fork();
-        if (f == 0) {
-            execl("/var/mobile/Media/PhotoData/KimJongCracks/tar", "tar", "xvf", "/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar", 0);
-            exit(0);
-        }
-        waitpid(f, 0, 0);
+            NSLog(@"Beginning extraction.");
+            int f = fork();
+            if (f == 0) {
+                execl("/var/mobile/Media/PhotoData/KimJongCracks/tar", "tar", "xvf", "/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar", 0);
+                exit(0);
+            }
+            waitpid(f, 0, 0);
 
-        NSLog(@"Done extracting.");
-        /*
-         this fucks shit up without an untether
-        f = fork();
-        if (f == 0) {
-            execl("/var/lib/dpkg/info/com.saurik.patcyh.extrainst_", "/var/lib/dpkg/info/com.saurik.patcyh.extrainst_", "install", 0);
-            exit(0);
-        }
-        waitpid(f, 0, 0);
-         */
-        f = fork();
-        if (f == 0) {
-            setreuid(501,501);
-            execl("/usr/bin/uicache", "uicache", 0);
-            exit(0);
-        }
-        waitpid(f, 0, 0);
-        NSLog(@"Done installing loader.");
+            NSLog(@"Done extracting.");
+            /*
+             this fucks shit up without an untether
+            f = fork();
+            if (f == 0) {
+                execl("/var/lib/dpkg/info/com.saurik.patcyh.extrainst_", "/var/lib/dpkg/info/com.saurik.patcyh.extrainst_", "install", 0);
+                exit(0);
+            }
+            waitpid(f, 0, 0);
+             */
+            f = fork();
+            if (f == 0) {
+                setreuid(501,501);
+                execl("/usr/bin/uicache", "uicache", 0);
+                exit(0);
+            }
+            waitpid(f, 0, 0);
+            NSLog(@"Done installing loader.");
         
-        unlink("/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar");
-        kill(pp, 9);
+            unlink("/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar");
+            kill(pp, 9);
+        }
     }
 
     NSLog(@"alive?!");
