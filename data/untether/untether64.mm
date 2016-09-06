@@ -10,8 +10,6 @@
 #include <spawn.h>
 extern char **environ;
 
-//#include "patchfinder_64.h"
-
 #pragma mark -
 #pragma mark IOKit
 
@@ -855,21 +853,6 @@ struct PatchFinder
 	{
 		// !!! PATCHFINDER CODE IS NOT AVAILABLE FOR PUBLIC !!!
 
-//		INVALIDATE_TLB	= find_invalidate_tlb_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		FLUSHCACHE		= find_flush_dcache_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		
-//		MOUNT_COMMON	= find_mount_common_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		CS_ENFORCE		= find_cs_enforcement_disable_amfi_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		VM_MAP_ENTER	= find_vm_map_enter_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		VM_MAP_PROTECT	= find_vm_map_protect_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		TFP0			= find_tfp0_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		GET_R00T		= find_setreuid_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		ICHDB_1			= find_i_can_has_debugger_1_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		ICHDB_1			= find_i_can_has_debugger_2_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		PROC_ENFORCE	= find_proc_enforce_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		MAPIO			= find_lwvm_mapio_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		SB_TRACE		= find_sb_backtrace_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-		
 		// These are hardcoded offsets for iPhone 5s
 
 		// gadgets
