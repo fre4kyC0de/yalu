@@ -1166,16 +1166,16 @@ int main(int argc, char** argv)
 		UTZLog(@"[INF:UTZ] KASLR slide = 0x%llX (%llu)", kaslr_slide, kaslr_slide);
 		
 		// DUMP KERNEL HERE IF YOU HAVE PATCHFINDER
-//		kernelDump = (uint8_t*)malloc(0x10000 * 256);
-//	#if defined(UNTETHER_AMFI)
-//		kernelDumper.init(&kernelReader, kaslr_slide, true);
-//		kernelDumper.init(&kernelReader, kaslr_slide);
-//		kernelDumper.dumpKernel(kernelDump, 0x10000 * 256);
+		kernelDump = (uint8_t*)malloc(0x10000 * 256);
+	#if defined(UNTETHER_AMFI)
+		kernelDumper.init(&kernelReader, kaslr_slide, true);
+		kernelDumper.init(&kernelReader, kaslr_slide);
+		kernelDumper.dumpKernel(kernelDump, 0x10000 * 256);
 //	#else
 //		FILE* file = fopen("/var/mobile/Media/kernel.dump", "r");
 //		fread(kernelDump, 1, 0x10000 * 256, file);
 //		fclose(file);
-//	#endif
+	#endif
 
 		patchFinder.init(kaslr_slide);
 		patchFinder.findPatchesForKernel(kernelDump);
