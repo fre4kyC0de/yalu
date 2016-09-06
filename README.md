@@ -40,5 +40,7 @@ Run the following command to download and try out the jailbreak on a Mac OS X sy
 - N78AP   (iPod5,1)   [iPod touch 5G]
 - N78aAP  (iPod5,1)   [iPod touch 5G with iSight camera]
 - N102AP  (iPod6,1)   [iPod touch 6G]
+
 2) rework untether to use the header files
+
 3) make "UNTETHER_AMFI" & "UNTETHER_FULL" architecture-independent
